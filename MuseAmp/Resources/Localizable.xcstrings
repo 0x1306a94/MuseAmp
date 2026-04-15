@@ -1217,6 +1217,22 @@
         }
       }
     },
+    "Close Window" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close Window"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭窗口"
+          }
+        }
+      }
+    },
     "Comparing library..." : {
       "localizations" : {
         "en" : {
@@ -4511,6 +4527,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "队列为空"
+          }
+        }
+      }
+    },
+    "Quit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quit"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退出"
+          }
+        }
+      }
+    },
+    "Quit %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quit %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退出 %@"
+          }
+        }
+      }
+    },
+    "Quitting now will interrupt the current playback or download." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitting now will interrupt the current playback or download."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "现在退出会中断当前播放或下载。"
           }
         }
       }

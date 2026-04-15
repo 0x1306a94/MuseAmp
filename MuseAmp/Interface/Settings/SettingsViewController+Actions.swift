@@ -84,7 +84,7 @@ extension SettingsViewController {
     func makeRebuildDatabaseObject() -> ConfigurableObject {
         ConfigurableObject(
             icon: "arrow.triangle.2.circlepath",
-            title:  "Rebuild Database",
+            title: "Rebuild Database",
             explain: "Force-rescan all local audio files, re-extract artwork, and repair database mismatches.",
             ephemeralAnnotation: .action { [weak self] _ in
                 guard let self else { return }

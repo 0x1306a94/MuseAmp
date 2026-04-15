@@ -15,11 +15,14 @@ enum ConfirmationAlertPresenter {
         message: String,
         confirmTitle: String,
         confirmAttribute: ActionContext.Action.Attribute = .accent,
+        onCancel: @escaping () -> Void = {},
         onConfirm: @escaping () -> Void,
     ) {
         let alert = AlertViewController(title: title, message: message) { context in
             context.addAction(title: String(localized: "Cancel")) {
-                context.dispose()
+                context.dispose {
+                    onCancel()
+                }
             }
             context.addAction(title: confirmTitle, attribute: confirmAttribute) {
                 context.dispose {

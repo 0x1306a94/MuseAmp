@@ -16,6 +16,12 @@ extension DownloadManager {
         tasks.values.count(where: { $0.state == .resolving || $0.state == .downloading })
     }
 
+    var hasExecutingTasks: Bool {
+        tasks.values.contains {
+            $0.state == .resolving || $0.state == .downloading || $0.state == .finalizing
+        }
+    }
+
     func processNextIfNeeded() {
         guard !isPausedAll else { return }
         updateDeferredStatesForPendingTasks()

@@ -5,6 +5,9 @@
 //  Created by @Lakr233 on 2026/04/11.
 //
 
+#if targetEnvironment(macCatalyst)
+    import Darwin
+#endif
 import UIKit
 
 @objc(SceneDelegate)
@@ -123,6 +126,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneDidDisconnect(_: UIScene) {
         environment?.playbackController.setUIPublishingSuspended(true)
         environment?.playbackController.persistPlaybackState()
+        #if targetEnvironment(macCatalyst)
+            scheduleCatalystExitIfNeededAfterLastWindowCloses()
+        #endif
     }
 }
 
@@ -250,3 +256,42 @@ private extension SceneDelegate {
         }
     }
 }
+
+#if targetEnvironment(macCatalyst)
+    extension SceneDelegate {
+        var appEnvironment: AppEnvironment? {
+            environment
+        }
+
+        private func scheduleCatalystExitIfNeededAfterLastWindowCloses() {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                try? await Task.sleep(for: .milliseconds(200))
+                let remainingWindowSceneCount = connectedWindowSceneCount()
+                guard MacCatalystTerminationPolicy.shouldExitAfterSceneDisconnect(
+                    remainingWindowSceneCount: remainingWindowSceneCount,
+                ) else {
+                    AppLog.info(
+                        self,
+                        "sceneDidDisconnect keeping app alive remainingWindowScenes=\(remainingWindowSceneCount)",
+                    )
+                    return
+                }
+                prepareForImmediateTermination()
+                AppLog.info(self, "sceneDidDisconnect last window closed - exiting app")
+                Darwin.exit(0)
+            }
+        }
+
+        func prepareForImmediateTermination() {
+            environment?.playbackController.persistPlaybackState()
+            environment?.playbackController.setUIPublishingSuspended(true)
+        }
+
+        private func connectedWindowSceneCount() -> Int {
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .count
+        }
+    }
+#endif
