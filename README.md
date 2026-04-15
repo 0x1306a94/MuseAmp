@@ -25,6 +25,7 @@ The upstream Subsonic API treats media IDs as strings. MuseAmp currently uses a 
 - album IDs and track IDs must be pure numeric strings
 - downloadable audio returned by `/rest/stream.view` and `/rest/download.view` must already be `m4a`
 - song payloads should expose `suffix=m4a` and `contentType=audio/mp4`
+- lyrics should be delivered as plain text or LRC text; MuseAmp supports synced lyric timestamps like `[mm:ss]`, `[mm:ss.xx]`, and optional `[offset:+500]`
 - the bytes returned by `/rest/stream.view` and `/rest/download.view` should match the advertised `m4a` metadata so local ingest, metadata embedding, and rebuild can succeed
 
 Servers that follow the broader Subsonic specification can still fall outside MuseAmp's supported subset. A compatibility layer or a stricter upstream server profile is required for reliable use.
