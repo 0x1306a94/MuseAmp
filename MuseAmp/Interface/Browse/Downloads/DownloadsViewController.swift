@@ -24,6 +24,15 @@ private final class DownloadsDiffableDataSource: UITableViewDiffableDataSource<D
 }
 
 final class DownloadsViewController: UIViewController {
+    private struct BarMenuState: Equatable {
+        let maxConcurrentDownloads: Int
+        let hasActiveTasks: Bool
+        let isPausedAll: Bool
+        let hasWaitingForNetwork: Bool
+        let isPausedForNetwork: Bool
+        let hasTasks: Bool
+    }
+
     private let downloadManager: DownloadManager
     private let environment: AppEnvironment?
     private let tableView = UITableView(frame: .zero, style: .plain)
@@ -37,6 +46,9 @@ final class DownloadsViewController: UIViewController {
     private var currentTasks: [ActiveDownloadTask] = []
     private var tasksByTrackID: [String: ActiveDownloadTask] = [:]
     private var hasAppliedInitialSnapshot = false
+    private var isShowingRowContextMenu = false
+    private var hasPendingUIRefresh = false
+    private var lastAppliedBarMenuState: BarMenuState?
     private let playlistMenuProvider: AddToPlaylistMenuProvider?
     private let availablePlaylists: (() -> [Playlist])?
     private lazy var diffableDataSource = makeDataSource()
@@ -127,11 +139,24 @@ private extension DownloadsViewController {
     }
 
     func updateBarButton() {
-        let menu = UIMenu(children: buildMenuElements())
+        let state = currentBarMenuState()
+        guard state != lastAppliedBarMenuState else {
+            return
+        }
+
+        lastAppliedBarMenuState = state
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             image: UIImage(systemName: "ellipsis"),
-            menu: menu,
+            menu: makeBarButtonMenu(),
         )
+    }
+
+    func makeBarButtonMenu() -> UIMenu {
+        UIMenu(children: [
+            UIDeferredMenuElement.uncached { [weak self] completion in
+                completion(self?.buildMenuElements() ?? [])
+            },
+        ])
     }
 
     func buildMenuElements() -> [UIMenuElement] {
@@ -147,7 +172,6 @@ private extension DownloadsViewController {
                     image: UIImage(systemName: "play"),
                 ) { [weak self] _ in
                     self?.downloadManager.resumeAll()
-                    self?.updateBarButton()
                 }
             } else {
                 UIAction(
@@ -155,7 +179,6 @@ private extension DownloadsViewController {
                     image: UIImage(systemName: "pause"),
                 ) { [weak self] _ in
                     self?.downloadManager.pauseAll()
-                    self?.updateBarButton()
                 }
             }
             groups.append([toggleAction])
@@ -240,11 +263,31 @@ private extension DownloadsViewController {
 
         currentTasks = newTasks
         tasksByTrackID = Dictionary(uniqueKeysWithValues: newTasks.map { ($0.trackID, $0) })
-        emptyStateView.isHidden = !newTasks.isEmpty
+        guard !isShowingRowContextMenu else {
+            hasPendingUIRefresh = true
+            return
+        }
+
+        renderCurrentTasks(
+            previousTrackIDs: previousTrackIDs,
+            newTrackIDs: newTrackIDs,
+        )
+    }
+
+    func renderCurrentTasks(
+        previousTrackIDs: [String],
+        newTrackIDs: [String],
+    ) {
+        emptyStateView.isHidden = !newTrackIDs.isEmpty
+        updateBarButton()
 
         let identityChanged = previousTrackIDs != newTrackIDs
-        let shouldAnimate = hasAppliedInitialSnapshot && identityChanged
+        guard identityChanged else {
+            refreshVisibleCells()
+            return
+        }
 
+        let shouldAnimate = hasAppliedInitialSnapshot
         var snapshot = NSDiffableDataSourceSnapshot<DownloadsSection, String>()
         snapshot.appendSections([.tasks])
         snapshot.appendItems(newTrackIDs, toSection: .tasks)
@@ -253,8 +296,29 @@ private extension DownloadsViewController {
         diffableDataSource.apply(snapshot, animatingDifferences: shouldAnimate) { [weak self] in
             self?.refreshVisibleCells()
         }
+    }
 
-        updateBarButton()
+    func flushPendingUIRefreshIfNeeded() {
+        guard hasPendingUIRefresh else {
+            return
+        }
+
+        hasPendingUIRefresh = false
+        renderCurrentTasks(
+            previousTrackIDs: diffableDataSource.snapshot().itemIdentifiers,
+            newTrackIDs: currentTasks.map(\.trackID),
+        )
+    }
+
+    private func currentBarMenuState() -> BarMenuState {
+        BarMenuState(
+            maxConcurrentDownloads: AppPreferences.maxConcurrentDownloads,
+            hasActiveTasks: currentTasks.contains { $0.state != .failed },
+            isPausedAll: downloadManager.isPausedAll,
+            hasWaitingForNetwork: currentTasks.contains { $0.state == .waitingForNetwork },
+            isPausedForNetwork: downloadManager.isPausedForNetwork,
+            hasTasks: !currentTasks.isEmpty,
+        )
     }
 
     func refreshVisibleCells() {
@@ -374,6 +438,31 @@ extension DownloadsViewController: UITableViewDelegate {
         previewForDismissingContextMenuWithConfiguration configuration: UIContextMenuConfiguration,
     ) -> UITargetedPreview? {
         CellContextMenuPreviewHelper.targetedPreview(for: configuration, in: tableView)
+    }
+
+    func tableView(
+        _: UITableView,
+        willDisplayContextMenu _: UIContextMenuConfiguration,
+        animator _: (any UIContextMenuInteractionAnimating)?,
+    ) {
+        isShowingRowContextMenu = true
+    }
+
+    func tableView(
+        _: UITableView,
+        willEndContextMenuInteraction _: UIContextMenuConfiguration,
+        animator: (any UIContextMenuInteractionAnimating)?,
+    ) {
+        let completeDismissal = { [weak self] in
+            self?.isShowingRowContextMenu = false
+            self?.flushPendingUIRefreshIfNeeded()
+        }
+
+        if let animator {
+            animator.addCompletion(completeDismissal)
+        } else {
+            completeDismissal()
+        }
     }
 
     func tableView(
